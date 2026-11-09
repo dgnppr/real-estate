@@ -7,11 +7,17 @@ export interface ProviderState { id: ProviderId; label: string; installed: boole
 
 function DecisionView({ d, compact }: { d: Decision; compact?: boolean }) {
   const v = VERDICT[d.verdict];
+  const [open, setOpen] = useState(false);
   return (
     <div className="dec" style={{ ["--c" as string]: v.c }}>
       <div className="h"><span className="vb" style={{ ["--c" as string]: v.c }}>{v.label}</span>{d.headline}</div>
-      {!compact && d.reasons && d.reasons.length > 0 && <ul>{d.reasons.map((r, i) => <li key={i}>{r}</li>)}</ul>}
-      {!compact && d.actions && d.actions.length > 0 && <ul style={{ color: "var(--muted)" }}>{d.actions.map((r, i) => <li key={i}>→ {r}</li>)}</ul>}
+      {!compact && d.actions && d.actions.length > 0 && <ul className="acts">{d.actions.map((r, i) => <li key={i}>{r}</li>)}</ul>}
+      {!compact && d.reasons && d.reasons.length > 0 && (
+        <>
+          <button className="linkbtn" onClick={() => setOpen((x) => !x)}>{open ? "근거 접기" : `판단 근거 ${d.reasons.length}개 보기`}</button>
+          {open && <ul>{d.reasons.map((r, i) => <li key={i}>{r}</li>)}</ul>}
+        </>
+      )}
       <div className="meta">
         {timeAgo(d.runAt)} · {d.provider} · {d.trigger === "batch" ? "배치" : "수동"}
         {d.confidence != null && ` · 확신 ${Math.round(d.confidence * 100)}%`}

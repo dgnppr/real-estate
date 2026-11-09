@@ -43,6 +43,7 @@ export default function App() {
   const [panel, setPanel] = useState<null | "me" | "rules" | "agent">(null);
   const [batch, setBatch] = useState<{ running: boolean; log: string[] }>({ running: false, log: [] });
   const [error, setError] = useState("");
+  const [saveState, setSaveState] = useState<"" | "saving" | "saved">("");
 
   const reloadListings = useCallback(async () => {
     const ls = await api<Listing[]>("/api/listings");
@@ -64,13 +65,13 @@ export default function App() {
   }, [reloadListings]);
 
   const err = (e: unknown) => setError((e as Error).message);
-  const saveListing = useDebounced<Partial<Listing>>(useCallback(async (id, patch) => { await api(`/api/listings/${id}`, { method: "PATCH", json: patch }).catch(err); }, []));
-  const saveProfile = useDebounced<Partial<Profile>>(useCallback(async (_k, patch) => { await api("/api/profile", { method: "PUT", json: patch }).catch(err); }, []));
-  const saveRules = useDebounced<Partial<DomainRules>>(useCallback(async (_k, patch) => { await api("/api/rules", { method: "PUT", json: patch }).catch(err); }, []));
+  const saveListing = useDebounced<Partial<Listing>>(useCallback(async (id, patch) => { await api(`/api/listings/${id}`, { method: "PATCH", json: patch }).catch(err); setSaveState("saved"); }, []));
+  const saveProfile = useDebounced<Partial<Profile>>(useCallback(async (_k, patch) => { await api("/api/profile", { method: "PUT", json: patch }).catch(err); setSaveState("saved"); }, []));
+  const saveRules = useDebounced<Partial<DomainRules>>(useCallback(async (_k, patch) => { await api("/api/rules", { method: "PUT", json: patch }).catch(err); setSaveState("saved"); }, []));
 
-  const patchListing = (id: number, p: Partial<Listing>) => { setListings((ls) => ls.map((l) => (l.id === id ? { ...l, ...p } : l))); saveListing(String(id), p); };
-  const patchProfile = (p: Partial<Profile>) => { setProfile((x) => (x ? { ...x, ...p } : x)); saveProfile("me", p); };
-  const patchRules = (p: Partial<DomainRules>) => { setRules((r) => ({ ...r, ...p })); saveRules("rules", p); };
+  const patchListing = (id: number, p: Partial<Listing>) => { setListings((ls) => ls.map((l) => (l.id === id ? { ...l, ...p } : l))); saveListing(String(id), p); setSaveState("saving"); };
+  const patchProfile = (p: Partial<Profile>) => { setProfile((x) => (x ? { ...x, ...p } : x)); saveProfile("me", p); setSaveState("saving"); };
+  const patchRules = (p: Partial<DomainRules>) => { setRules((r) => ({ ...r, ...p })); saveRules("rules", p); setSaveState("saving"); };
   const resetRules = async () => setRules(await api<DomainRules>("/api/rules", { method: "DELETE" }));
   const patchSettings = async (p: Partial<Settings>) => {
     setInfo((x) => (x ? { ...x, settings: { ...x.settings, ...p } } : x));
@@ -109,6 +110,7 @@ export default function App() {
       <header className="top">
         <h1>🏠 내집마련</h1>
         <div className="live">
+          {saveState && <span className="saved">{saveState === "saving" ? "저장 중…" : "저장됨 ✓"}</span>}
           <button className="btn sm" disabled={batch.running} onClick={runAll}>{batch.running ? <><span className="spin" /> 감시 중</> : "▶ 지금 감시"}</button>
           <button className="btn sm" onClick={() => setPanel("rules")}>⚖ 규칙</button>
           <button className="btn sm" onClick={() => setPanel("agent")}>⚙ 설정</button>
@@ -143,7 +145,14 @@ export default function App() {
       </div>
 
       {!active ? (
-        <div className="card empty">아직 매물이 없습니다. <b>＋ 매물</b>을 눌러 노원·도봉 단지를 찾아보세요.</div>
+        <div className="card empty onboard">
+          <b>3단계면 끝나요</b>
+          <ol>
+            <li><button className="linkbtn" onClick={() => setPanel("me")}>내 상태</button>에 모아둔 돈·월 저축·부부 연봉·아이 출생일을 넣고</li>
+            <li><button className="linkbtn" onClick={addListing}>＋ 매물</button>을 눌러 노원·도봉 단지를 고르면</li>
+            <li>살 수 있는지, 어떤 대출 조합이 유리한지 바로 보여 줘요</li>
+          </ol>
+        </div>
       ) : (
         <div className="grid">
           <div className="card">
@@ -152,7 +161,9 @@ export default function App() {
               onSnapshot={async (source, data) => { await api(`/api/listings/${active.id}/snapshots`, { method: "POST", json: { source, data } }).catch(err); await reloadListings(); setVersion((v) => v + 1); }} />
           </div>
           <div>
-            <ResultPanel p={eff} s={toInput(active)} o={calc(eff, toInput(active), rules)} dsrLimit={rules.dsrLimit} onIgnore={(v) => patchListing(active.id, { ignoreRules: v })} onChoose={(id) => patchProfile({ loanProduct: id })} />
+            <ResultPanel p={eff} s={toInput(active)} o={calc(eff, toInput(active), rules)} rules={rules}
+              onIgnore={(v) => patchListing(active.id, { ignoreRules: v })} onChoose={(id) => patchProfile({ loanProduct: id })}
+              onListing={(x) => patchListing(active.id, x as Partial<Listing>)} onProfile={patchProfile} />
             <AgentPanel key={active.id} listingId={active.id} providers={providers} provider={provider} onProvider={(p: ProviderId) => patchSettings({ provider: p })} version={version}
               onChanged={async () => { await reloadListings(); }} />
           </div>

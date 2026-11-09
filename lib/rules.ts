@@ -45,6 +45,9 @@ export interface DomainRules {
   firstBuyerTaxRelief: number; // 생애최초 취득세 감면 한도 (만원)
   products: LoanProduct[]; // 정책대출 선택지
   stressRatio: Record<RateType, number>; // 금리 유형별 스트레스 가산 반영 비율 %
+  creditStress: number; // 신용대출 스트레스 금리 %p (잔액이 기준 초과일 때)
+  creditStressThreshold: number; // 신용대출 스트레스 적용 기준 잔액 (만원, 1억)
+  policyInDsr: boolean; // 정책대출 상환액을 다른 대출(신용) DSR 계산에 포함
 }
 
 export const DEFAULT_PRODUCTS: LoanProduct[] = [
@@ -76,6 +79,11 @@ export const DEFAULT_RULES: DomainRules = {
   products: DEFAULT_PRODUCTS,
   // 스트레스 DSR 3단계: 변동 100%, 혼합 80%, 주기 40%, 완전고정 0% (은행 확인 필요)
   stressRatio: { variable: 100, mixed: 80, periodic: 40, fixed: 0 },
+  // 금융위 3단계: 신용대출 전체 잔액 1억 초과 시 스트레스 금리 적용 (만기일시·변동 = 100%)
+  creditStress: 1.5,
+  creditStressThreshold: 10000,
+  // 정책대출 자체는 DSR 규제 제외. 신용대출 DSR 산정 때 정책대출 상환액 포함 여부는 은행 확인 필요 → 보수적으로 포함
+  policyInDsr: true,
 };
 
 /** 저장된 값이 일부만 있어도 기본값과 병합 */
@@ -113,6 +121,8 @@ export function rulesText(dr: DomainRules) {
 - 수도권 비규제: LTV ${r.metro.ltv}%/${r.metro.ltvFirst}%, 상한 ${cap(r.metro.cap)}, 스트레스 +${r.metro.stress}%p, 전입의무 ${r.metro.moveInMonths || "없음"}개월
 - 지방: LTV ${r.local.ltv}%/${r.local.ltvFirst}%, 상한 ${cap(r.local.cap)}, 스트레스 +${r.local.stress}%p
 - 스트레스 DSR 한도 ${dr.dsrLimit}%, 신용대출 연소득 ${dr.creditCapRatio}배 이내
+- 신용대출 DSR: 만기일시는 원금÷${dr.creditDsrYears}년+이자로 환산, 1인 잔액 ${dr.creditStressThreshold / 10000}억 초과 시 +${dr.creditStress}%p 스트레스
+- 정책대출 상환액을 신용대출 DSR에 ${dr.policyInDsr ? "포함" : "미포함"}
 - 스트레스 가산 반영 비율: 변동 ${dr.stressRatio.variable}% · 혼합 ${dr.stressRatio.mixed}% · 주기 ${dr.stressRatio.periodic}% · 고정 ${dr.stressRatio.fixed}%
 ${dr.products.filter((x) => x.enabled).map((x) => `- 정책대출 ${x.name}: 금리 ${x.rate}% 고정, 한도 ${x.maxLoan / 10000}억, LTV ${x.ltv}%, DTI ${x.dti}% (DSR 미적용), 집값 ${x.maxPrice / 10000}억·${x.maxArea || "-"}㎡ 이하, 소득 ${x.maxIncome}만 이하, 순자산 ${x.maxAssets}만 이하${x.childWithinMonths ? `, 출생 ${x.childWithinMonths}개월 이내` : ""}${x.firstBuyerOnly ? ", 생애최초" : ""}`).join("\n")}`;
 }

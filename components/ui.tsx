@@ -43,13 +43,23 @@ export const VERDICT: Record<string, { label: string; c: string }> = {
   ERROR: { label: "오류", c: "var(--v-err)" },
 };
 
+/** "7억2천" "7.2억" "3500만" "2억 5000" → 만원 단위 숫자 */
+export function parseMoney(t: string): number | null {
+  const s = t.replace(/[,\s원]/g, "");
+  if (!s) return null;
+  if (/^-?[\d.]+$/.test(s)) return parseFloat(s);
+  const m = s.match(/^(?:([\d.]+)억)?(?:([\d.]+)천)?(?:([\d.]+)만?)?$/);
+  if (!m || (!m[1] && !m[2] && !m[3])) return null;
+  return Math.round((parseFloat(m[1] || "0") * 10000 + parseFloat(m[2] || "0") * 1000 + parseFloat(m[3] || "0")) * 100) / 100;
+}
+
 /**
  * 숫자 입력칸 — 입력 중에는 글자를 그대로 둠 (빈칸 허용, 앞자리 0 제거),
  * 포커스 시 전체 선택이라 0 위에 바로 입력해도 "01" 이 되지 않음.
  * nullable 이면 빈칸 = null, 아니면 빈칸 = 0 으로 저장.
  */
-export function NumberField({ value, onChange, step = 1, disabled, nullable, placeholder, className }: {
-  value: number | null | undefined; onChange: (v: number | null) => void; step?: number; disabled?: boolean; nullable?: boolean; placeholder?: string; className?: string;
+export function NumberField({ value, onChange, step = 1, disabled, nullable, placeholder, className, money }: {
+  value: number | null | undefined; onChange: (v: number | null) => void; step?: number; disabled?: boolean; nullable?: boolean; placeholder?: string; className?: string; money?: boolean;
 }) {
   const [text, setText] = useState<string | null>(null); // null = 편집 중 아님 → value 표시
   const shown = text ?? (value == null ? "" : String(value));
@@ -58,11 +68,12 @@ export function NumberField({ value, onChange, step = 1, disabled, nullable, pla
       onFocus={(e) => { setText(value == null ? "" : String(value)); e.currentTarget.select(); }}
       onBlur={() => setText(null)}
       onChange={(e) => {
-        let t = e.target.value.replace(/[^\d.-]/g, "");
+        let t = e.target.value.replace(money ? /[^\d.\-억천만 ]/g : /[^\d.-]/g, "");
         t = t.replace(/^(-?)0+(?=\d)/, "$1"); // 앞자리 0 제거
         setText(t);
-        if (t === "" || t === "-" || t === ".") onChange(nullable ? null : 0);
-        else if (!Number.isNaN(parseFloat(t))) onChange(parseFloat(t));
+        if (t.trim() === "" || t === "-" || t === ".") { onChange(nullable ? null : 0); return; }
+        const v = money ? parseMoney(t) : parseFloat(t);
+        if (v != null && !Number.isNaN(v)) onChange(v);
       }} />
   );
 }
@@ -72,7 +83,7 @@ export function Money({ label, value, onChange, disabled, step = 100, nullable, 
   return (
     <label className="f">
       <span>{label}<em>{value != null && value >= 10000 ? F(value) : ""}</em></span>
-      <NumberField value={value} step={step} disabled={disabled} nullable={nullable} placeholder={placeholder} onChange={(v) => onChange(v as number)} />
+      <NumberField money value={value} step={step} disabled={disabled} nullable={nullable} placeholder={placeholder ?? "예: 7억2천"} onChange={(v) => onChange(v as number)} />
     </label>
   );
 }

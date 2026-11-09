@@ -34,6 +34,30 @@ export function creditMonthly(P: number, p: Pick<Profile, "cRate" | "cYears" | "
   return (p.cRepay ?? "bullet") === "amortize" ? pmt(P, p.cRate, Math.max(1, p.cYears)) : (P * p.cRate) / 1200;
 }
 
+/**
+ * 신용대출이 DSR 에서 차지하는 월 상환액 (규정 환산)
+ * - 만기일시: 원금 ÷ (환산 만기×12) + 이자(금리+스트레스) — 원금은 환산 만기로 균등, 이자는 전액 기준
+ * - 원리금균등: 실제 상환 일정(금리+스트레스)
+ * 스트레스는 한 사람의 신용대출 잔액이 기준(1억) 을 넘을 때만 붙음
+ */
+export function creditDsrMonthly(P: number, totalAfter: number, p: Pick<Profile, "cRate" | "cYears" | "cRepay">, dr: Pick<DomainRules, "creditDsrYears" | "creditStress" | "creditStressThreshold">) {
+  if (P <= 0) return 0;
+  const rate = p.cRate + (totalAfter > dr.creditStressThreshold ? dr.creditStress : 0);
+  if ((p.cRepay ?? "bullet") === "amortize") return pmt(P, rate, Math.max(1, p.cYears));
+  return P / (dr.creditDsrYears * 12) + (P * rate) / 1200;
+}
+
+/** 남은 DSR 월 여력(room)으로 받을 수 있는 최대 신용대출 (이미 받은 used 포함해 1억 기준 판단) */
+function creditMaxByDsr(room: number, used: number, p: Pick<Profile, "cRate" | "cYears" | "cRepay">, dr: Pick<DomainRules, "creditDsrYears" | "creditStress" | "creditStressThreshold">) {
+  if (room <= 0) return 0;
+  const unit = (stress: boolean) => creditDsrMonthly(1, stress ? Infinity : 0, p, dr); // 1만원당 월 DSR
+  const noStress = room / unit(false);
+  const headroom = Math.max(0, dr.creditStressThreshold - used);
+  if (noStress <= headroom) return noStress;
+  // 기준을 넘으면 전체에 스트레스가 붙는다고 보고, 기준 이하로 받는 것과 비교해 큰 쪽
+  return Math.max(headroom, room / unit(true));
+}
+
 export function borrowersOf(p: Pick<Profile, "income" | "otherDebt" | "borrowers">): Borrower[] {
   const b = (p.borrowers ?? []).filter((x) => x && x.name);
   return b.some((x) => x.income > 0) ? b : [{ name: "나", income: p.income, otherDebt: p.otherDebt }];
@@ -173,7 +197,7 @@ function calcWith(p: Profile, s: ListingInput, dr: DomainRules, mb: Exclude<Mort
   // 정책대출: 상품 LTV·한도, 스트레스 없음, 전입 기한은 상품 기준
   const R: Rules = prod ? { ltv: prod.ltv, cap: prod.maxLoan, stress: 0, moveIn: true, moveInMonths: prod.moveInMonths, toheo: base.toheo } : base;
   const mRate = prod ? prod.rate : p.mRate, mYears = prod ? prod.years : p.mYears;
-  const dsrPct = dr.dsrLimit / 100, cy = dr.creditDsrYears;
+  const dsrPct = dr.dsrLimit / 100;
   const bs = borrowersOf(p);
   const totalIncome = bs.reduce((a, b) => a + b.income, 0);
   const ineligible = prod ? eligibility(p, s, prod, totalIncome) : [];
@@ -207,9 +231,9 @@ function calcWith(p: Profile, s: ListingInput, dr: DomainRules, mb: Exclude<Mort
     for (const i of order) {
       if (need <= 0) break;
       const cap = Math.max(0, bs[i].income * dr.creditCapRatio - creditUsed[i]);
-      const amt = Math.max(0, Math.min(need, cap, pv(Math.max(0, rooms[i]), p.cRate, cy)));
+      const amt = Math.max(0, Math.min(need, cap, creditMaxByDsr(rooms[i], creditUsed[i], p, dr)));
       if (amt <= 0) continue;
-      got[i] = amt; creditUsed[i] += amt; rooms[i] -= pmt(amt, p.cRate, cy); need -= amt;
+      got[i] = amt; creditUsed[i] += amt; rooms[i] -= creditDsrMonthly(amt, creditUsed[i], p, dr); need -= amt;
     }
     return got;
   };
@@ -218,8 +242,8 @@ function calcWith(p: Profile, s: ListingInput, dr: DomainRules, mb: Exclude<Mort
   const plans = bs.map((b) => Math.max(0, b.creditPlan ?? 0));
   const c0 = bs.map((b, i) => {
     if (!plans[i]) return 0;
-    const amt = Math.max(0, Math.min(plans[i], b.income * dr.creditCapRatio, pv(Math.max(0, rooms[i]), p.cRate, cy)));
-    creditUsed[i] += amt; rooms[i] -= pmt(amt, p.cRate, cy);
+    const amt = Math.max(0, Math.min(plans[i], b.income * dr.creditCapRatio, creditMaxByDsr(rooms[i], 0, p, dr)));
+    creditUsed[i] += amt; rooms[i] -= creditDsrMonthly(amt, creditUsed[i], p, dr);
     return amt;
   });
   const credit0 = c0.reduce((a, b) => a + b, 0);
@@ -233,7 +257,8 @@ function calcWith(p: Profile, s: ListingInput, dr: DomainRules, mb: Exclude<Mort
   const limitBy: LimitBy = ineligible.length ? "자격" : blockReason ? "규제" : loanLimit === ltvRoom ? "LTV" : loanLimit === R.cap ? "상한" : prod ? "DTI" : "DSR";
   const toSeller = s.price - s.deposit;
   const loan = Math.min(loanLimit, Math.max(0, toSeller));
-  chargeMortgage(pmt(loan, mS, mYears));
+  // 정책대출은 DSR 규제 제외 — 신용대출 DSR 에 포함할지는 규칙(policyInDsr)
+  if (!prod || dr.policyInDsr) chargeMortgage(pmt(loan, mS, mYears));
   const need1 = Math.max(0, toSeller - loan) + costs;
   const cash1 = Math.min(Math.max(0, cashAtBuy), Math.max(0, need1 - credit0));
   let rem = Math.max(0, need1 - credit0 - cash1);

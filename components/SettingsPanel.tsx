@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { borrowersOf, type Borrower, type CreditRepay, type MortgageBorrower, type Profile } from "@/lib/calc";
+import { borrowersOf, creditDsrMonthly, type Borrower, type CreditRepay, type MortgageBorrower, type Profile } from "@/lib/calc";
 import type { Settings } from "@/lib/service";
 import { RATE_TYPE_LABEL, type DomainRules, type LoanProduct, type RateType, type RegionRule } from "@/lib/rules";
 import type { ProviderId } from "@/lib/agents";
@@ -89,7 +89,7 @@ export function SettingsPanel({ tab: initial, onClose, profile, onProfile, rules
                 const caps = bs.map((b) => ({ name: b.name, cap: b.income * rules.creditCapRatio }));
                 const total = caps.reduce((a, c) => a + c.cap, 0);
                 const monthly = (P: number) => (repay === "amortize" ? (P * (cRate / 1200)) / (1 - Math.pow(1 + cRate / 1200, -Math.max(1, profile.cYears) * 12)) : (P * cRate) / 1200);
-                const dsrMonthly = (P: number) => (P * (cRate / 1200)) / (1 - Math.pow(1 + cRate / 1200, -rules.creditDsrYears * 12));
+                const dsrMonthly = (P: number) => caps.reduce((a, c) => a + creditDsrMonthly(c.cap * (P / Math.max(1, total)), c.cap * (P / Math.max(1, total)), { cRate, cYears: profile.cYears, cRepay: repay }, rules), 0);
                 return (
                   <>
                     <div className="row3c">
@@ -107,7 +107,7 @@ export function SettingsPanel({ tab: initial, onClose, profile, onProfile, rules
                     </div>
                     <p className="hint">
                       한도 = 각자 연봉 × {rules.creditCapRatio}배 (⚖ 규칙에서 변경). 합계 한도를 다 받으면 실제 월 납입은 약 <b>{Math.round(monthly(total)).toLocaleString()}만</b>
-                      ({repay === "bullet" ? "이자만" : `${profile.cYears}년 원리금`})이지만, 은행 DSR은 {rules.creditDsrYears}년 원리금으로 환산해 월 <b>{Math.round(dsrMonthly(total)).toLocaleString()}만</b>으로 계산합니다.
+                      ({repay === "bullet" ? "이자만" : `${profile.cYears}년 원리금`})이지만, 은행 DSR은 {repay === "bullet" ? `원금÷${rules.creditDsrYears}년 + 이자` : "실제 원리금"}으로 환산해 월 <b>{Math.round(dsrMonthly(total)).toLocaleString()}만</b>으로 계산합니다{rules.creditStress ? ` (한 사람 잔액 ${F(rules.creditStressThreshold)} 초과 시 +${rules.creditStress}%p 스트레스)` : ""}.
                       그래서 신용대출을 많이 받으면 그만큼 주담대 한도가 줄어듭니다. 실제로 얼마를 받는지는 결과 화면의 신용대출 줄에 사람별로 나옵니다.
                     </p>
                   </>
@@ -144,6 +144,11 @@ export function SettingsPanel({ tab: initial, onClose, profile, onProfile, rules
                 <Num label="DSR 한도 %" step={1} value={rules.dsrLimit} onChange={(v) => onRules({ dsrLimit: v })} />
                 <Num label="신용대출 한도 (연소득 ×)" step={0.1} value={rules.creditCapRatio} onChange={(v) => onRules({ creditCapRatio: v })} />
               </div>
+              <div className="row2">
+                <Num label="신용대출 스트레스 %p" step={0.25} value={rules.creditStress} onChange={(v) => onRules({ creditStress: v })} />
+                <Money label="신용 스트레스 적용 기준 잔액 (1인)" value={rules.creditStressThreshold} onChange={(v) => onRules({ creditStressThreshold: v })} />
+              </div>
+              <Toggle label="정책대출(신생아 특례 등) 상환액을 신용대출 DSR에 포함 (은행 확인 필요)" checked={rules.policyInDsr} onChange={(v) => onRules({ policyInDsr: v })} />
               <div className="row2">
                 <Num label="신용대출 DSR 환산 만기 (년)" step={1} value={rules.creditDsrYears} onChange={(v) => onRules({ creditDsrYears: v })} />
                 <Money label="생애최초 취득세 감면 한도" value={rules.firstBuyerTaxRelief} onChange={(v) => onRules({ firstBuyerTaxRelief: v })} />
