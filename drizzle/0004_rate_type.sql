@@ -1,0 +1,1 @@
+ALTER TABLE `profile` ADD `m_rate_type` text DEFAULT 'variable' NOT NULL;

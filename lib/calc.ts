@@ -1,6 +1,6 @@
 // 내집마련 자금 계산 엔진 (순수 함수 — 클라이언트/서버/에이전트 공용). 단위: 만원
 import type { Region } from "./regions";
-import { DEFAULT_RULES, type DomainRules, type LoanProduct } from "./rules";
+import { DEFAULT_RULES, type DomainRules, type LoanProduct, type RateType } from "./rules";
 
 export interface Profile {
   asOf: string; // YYYY-MM 기준월
@@ -12,6 +12,7 @@ export interface Profile {
   mortgageBorrower?: MortgageBorrower; // 주담대 차주: auto=부족액 최소가 되는 쪽 자동 선택
   firstBuyer: boolean;
   mRate: number; mYears: number; // 주담대 금리(%)·만기(년)
+  mRateType?: RateType; // 주담대 금리 유형 → 스트레스 가산 반영 비율
   cRate: number; cYears: number; // 신용대출 금리(%)·상환기간(년)
   cRepay?: CreditRepay; // 신용대출 상환 방식 (기본 만기일시 = 매달 이자만)
   autoRate: boolean; // 실시간 금리 사용
@@ -53,10 +54,11 @@ export interface Rates { mortgage: { rate: number; time: string } | null; credit
 
 export interface Rules { ltv: number; cap: number; stress: number; moveIn: boolean; moveInMonths: number; toheo: boolean }
 
-export function rules(p: Pick<Profile, "firstBuyer">, s: Pick<ListingInput, "region" | "price">, dr: DomainRules = DEFAULT_RULES): Rules {
+export function rules(p: Pick<Profile, "firstBuyer" | "mRateType">, s: Pick<ListingInput, "region" | "price">, dr: DomainRules = DEFAULT_RULES): Rules {
   const r = dr.regions[s.region];
+  const ratio = (dr.stressRatio?.[p.mRateType ?? "variable"] ?? 100) / 100;
   const tier = s.price > 250000 ? r.capOver25 ?? r.cap : s.price > 150000 ? r.capOver15 ?? r.cap : r.cap;
-  return { ltv: p.firstBuyer ? r.ltvFirst : r.ltv, cap: tier ?? Infinity, stress: r.stress, moveIn: r.moveInMonths > 0, moveInMonths: r.moveInMonths, toheo: r.toheo };
+  return { ltv: p.firstBuyer ? r.ltvFirst : r.ltv, cap: tier ?? Infinity, stress: Math.round(r.stress * ratio * 100) / 100, moveIn: r.moveInMonths > 0, moveInMonths: r.moveInMonths, toheo: r.toheo };
 }
 
 export function acqTax(price: number, first: boolean, relief = 200) {

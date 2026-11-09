@@ -32,6 +32,9 @@ export interface LoanProduct {
   note: string;
 }
 
+export type RateType = "variable" | "mixed" | "periodic" | "fixed";
+export const RATE_TYPE_LABEL: Record<RateType, string> = { variable: "변동형", mixed: "혼합형 (고정 후 변동)", periodic: "주기형 (5년+ 주기 변동)", fixed: "완전 고정" };
+
 export interface DomainRules {
   label: string; // 기준 (예: 2025.10.15 대책)
   regions: Record<Region, RegionRule>;
@@ -41,6 +44,7 @@ export interface DomainRules {
   creditDsrYears: number; // DSR 계산 시 신용대출 환산 만기(년)
   firstBuyerTaxRelief: number; // 생애최초 취득세 감면 한도 (만원)
   products: LoanProduct[]; // 정책대출 선택지
+  stressRatio: Record<RateType, number>; // 금리 유형별 스트레스 가산 반영 비율 %
 }
 
 export const DEFAULT_PRODUCTS: LoanProduct[] = [
@@ -70,6 +74,8 @@ export const DEFAULT_RULES: DomainRules = {
   creditDsrYears: 5,
   firstBuyerTaxRelief: 200,
   products: DEFAULT_PRODUCTS,
+  // 스트레스 DSR 3단계: 변동 100%, 혼합 80%, 주기 40%, 완전고정 0% (은행 확인 필요)
+  stressRatio: { variable: 100, mixed: 80, periodic: 40, fixed: 0 },
 };
 
 /** 저장된 값이 일부만 있어도 기본값과 병합 */
@@ -80,6 +86,7 @@ export function mergeRules(saved: Partial<DomainRules> | null | undefined): Doma
     // 저장된 상품은 기본값과 id 로 병합 (새로 추가된 기본 상품도 보이도록)
     products: DEFAULT_PRODUCTS.map((d) => ({ ...d, ...saved.products?.find((x) => x.id === d.id) }))
       .concat((saved.products ?? []).filter((x) => !DEFAULT_PRODUCTS.some((d) => d.id === x.id))),
+    stressRatio: { ...DEFAULT_RULES.stressRatio, ...saved.stressRatio },
     regions: {
       reg: { ...DEFAULT_RULES.regions.reg, ...saved.regions?.reg },
       metro: { ...DEFAULT_RULES.regions.metro, ...saved.regions?.metro },
@@ -106,5 +113,6 @@ export function rulesText(dr: DomainRules) {
 - 수도권 비규제: LTV ${r.metro.ltv}%/${r.metro.ltvFirst}%, 상한 ${cap(r.metro.cap)}, 스트레스 +${r.metro.stress}%p, 전입의무 ${r.metro.moveInMonths || "없음"}개월
 - 지방: LTV ${r.local.ltv}%/${r.local.ltvFirst}%, 상한 ${cap(r.local.cap)}, 스트레스 +${r.local.stress}%p
 - 스트레스 DSR 한도 ${dr.dsrLimit}%, 신용대출 연소득 ${dr.creditCapRatio}배 이내
+- 스트레스 가산 반영 비율: 변동 ${dr.stressRatio.variable}% · 혼합 ${dr.stressRatio.mixed}% · 주기 ${dr.stressRatio.periodic}% · 고정 ${dr.stressRatio.fixed}%
 ${dr.products.filter((x) => x.enabled).map((x) => `- 정책대출 ${x.name}: 금리 ${x.rate}% 고정, 한도 ${x.maxLoan / 10000}억, LTV ${x.ltv}%, DTI ${x.dti}% (DSR 미적용), 집값 ${x.maxPrice / 10000}억·${x.maxArea || "-"}㎡ 이하, 소득 ${x.maxIncome}만 이하, 순자산 ${x.maxAssets}만 이하${x.childWithinMonths ? `, 출생 ${x.childWithinMonths}개월 이내` : ""}${x.firstBuyerOnly ? ", 생애최초" : ""}`).join("\n")}`;
 }

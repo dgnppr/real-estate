@@ -182,3 +182,4 @@ textarea.sel{resize:vertical;font-size:12px}
 .opt.off{opacity:.6}
 .opt.cur{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
 .opt.on{background:color-mix(in srgb,var(--accent) 10%,var(--card))}
+.row4{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:6px}

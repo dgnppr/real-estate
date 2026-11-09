@@ -55,7 +55,7 @@ export async function updateSettings(patch: Partial<Settings>) {
 const DEFAULT_PROFILE: Profile = {
   asOf: nowYm(), saved: 20000, monthlySave: 200, income: 8000, otherDebt: 0, firstBuyer: true, mRate: 4.2, mYears: 30, cRate: 5.5, cYears: 1, cRepay: "bullet", autoRate: true,
   borrowers: [{ name: "나", income: 5000, otherDebt: 0 }, { name: "아내", income: 3000, otherDebt: 0 }], mortgageBorrower: "auto",
-  childBirth: null, assets: null, loanProduct: "auto",
+  childBirth: null, assets: null, loanProduct: "auto", mRateType: "variable",
 };
 
 export async function getProfile(): Promise<Profile> {
@@ -69,7 +69,7 @@ export async function getProfile(): Promise<Profile> {
     borrowers: row.borrowers?.length ? row.borrowers : [{ name: "나", income: row.income, otherDebt: row.otherDebt }],
     mortgageBorrower: row.mortgageBorrower,
     cRepay: row.cRepay,
-    childBirth: row.childBirth, assets: row.assets, loanProduct: row.loanProduct,
+    childBirth: row.childBirth, assets: row.assets, loanProduct: row.loanProduct, mRateType: row.mRateType,
   };
 }
 export async function updateProfile(patch: Partial<Profile>) {

@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { borrowersOf, type Borrower, type CreditRepay, type MortgageBorrower, type Profile } from "@/lib/calc";
 import type { Settings } from "@/lib/service";
-import type { DomainRules, LoanProduct, RegionRule } from "@/lib/rules";
+import { RATE_TYPE_LABEL, type DomainRules, type LoanProduct, type RateType, type RegionRule } from "@/lib/rules";
 import type { ProviderId } from "@/lib/agents";
 import type { Region } from "@/lib/regions";
 import { SGG_LIST } from "@/lib/regions";
@@ -73,6 +73,12 @@ export function SettingsPanel({ tab: initial, onClose, profile, onProfile, rules
                 );
               })()}
               <div className="gt" style={{ marginTop: 12 }}>주담대</div>
+              <label className="f" style={{ marginBottom: 8 }}><span>금리 유형 (스트레스 DSR 가산 비율이 달라짐)</span>
+                <select value={profile.mRateType ?? "variable"} onChange={(e) => onProfile({ mRateType: e.target.value as RateType })}>
+                  {(Object.keys(RATE_TYPE_LABEL) as RateType[]).map((t) => (
+                    <option key={t} value={t}>{RATE_TYPE_LABEL[t]} — 스트레스 {rules.stressRatio[t]}% 반영 (규제지역 +{Math.round(rules.regions.reg.stress * rules.stressRatio[t]) / 100}%p)</option>
+                  ))}
+                </select></label>
               <div className="row2"><Num label="금리 %" value={autoRate ? rates!.mortgage?.rate ?? profile.mRate : profile.mRate} disabled={autoRate} onChange={(v) => onProfile({ mRate: v })} /><Num label="만기 (년)" step={5} value={profile.mYears} onChange={(v) => onProfile({ mYears: v })} /></div>
 
               <div className="gt" style={{ marginTop: 12 }}>신용대출</div>
@@ -162,6 +168,13 @@ export function SettingsPanel({ tab: initial, onClose, profile, onProfile, rules
                 </table>
               </div>
               {rules.products.map((x) => <p key={x.id} className="hint" style={{ margin: "4px 0" }}><b>{x.name}</b>: {x.note}</p>)}
+              <div className="gt" style={{ marginTop: 14 }}>금리 유형별 스트레스 가산 반영 비율 %</div>
+              <div className="row4">
+                {(Object.keys(RATE_TYPE_LABEL) as RateType[]).map((t) => (
+                  <Num key={t} label={RATE_TYPE_LABEL[t].split(" ")[0]} step={10} value={rules.stressRatio[t]} onChange={(v) => onRules({ stressRatio: { ...rules.stressRatio, [t]: v } })} />
+                ))}
+              </div>
+              <p className="hint">예: 규제지역 스트레스 {rules.regions.reg.stress}%p × 주기형 {rules.stressRatio.periodic}% = +{Math.round(rules.regions.reg.stress * rules.stressRatio.periodic) / 100}%p 로 DSR 계산.</p>
               <label className="f"><span>규제지역 시군구 코드 (쉼표 구분, 11* = 서울 전체)</span>
                 <textarea className="sel" rows={3} defaultValue={regText} onBlur={(e) => onRules({ regulatedSgg: e.target.value.split(/[,\s]+/).map((x) => x.trim()).filter(Boolean) })} />
               </label>

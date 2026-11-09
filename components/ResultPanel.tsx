@@ -1,6 +1,7 @@
 "use client";
 import { ymAdd, type CalcResult, type ListingInput, type Profile } from "@/lib/calc";
 import { REGION_LABEL } from "@/lib/regions";
+import { RATE_TYPE_LABEL } from "@/lib/rules";
 import { F, W, ymLabel } from "./ui";
 
 function Bar({ parts, total }: { parts: [string, number][]; total: number }) {
@@ -60,7 +61,7 @@ export function ResultPanel({ p, s, o, dsrLimit, onIgnore, onChoose }: { p: Prof
           현금 흐름: 지금 {F(p.saved)} → 잔금({ymLabel(s.buyYm)}) {F(o.cashAtBuy)} → 입주({ymLabel(s.moveYm)}) {F(o.cashAtMove)}
         </div>
         <div className="chips">
-          <span className="chip">{o.productName} {o.mRateUsed}%</span>
+          <span className="chip">{o.productName} {o.mRateUsed}%{!o.policy ? ` · ${RATE_TYPE_LABEL[p.mRateType ?? "variable"].split(" ")[0]} (DSR +${R.stress}%p)` : ""}</span>
           <span className="chip">{REGION_LABEL[s.region]} · LTV {R.ltv}%{o.policy ? " · DTI 심사" : ""}</span>
           <span className="chip">{o.policy ? "정책대출" : "주담대"} {F(o.loan + o.addLoan)} · {o.mortgageBy}{!o.policy && p.mortgageBorrower === "auto" && o.creditBy.length > 1 ? "(자동)" : ""}</span>
           <span className="chip">월 상환 {W(o.pay2)}</span>

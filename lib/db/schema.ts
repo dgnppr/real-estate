@@ -14,6 +14,7 @@ export const profile = sqliteTable("profile", {
   cYears: integer("c_years").notNull(),
   autoRate: integer("auto_rate", { mode: "boolean" }).notNull().default(true),
   borrowers: text("borrowers", { mode: "json" }).$type<{ name: string; income: number; otherDebt: number }[]>(),
+  mRateType: text("m_rate_type", { enum: ["variable", "mixed", "periodic", "fixed"] }).notNull().default("variable"),
   childBirth: text("child_birth"),
   assets: real("assets"),
   loanProduct: text("loan_product").notNull().default("auto"),
