@@ -1,0 +1,1 @@
+ALTER TABLE `profile` ADD `c_repay` text DEFAULT 'bullet' NOT NULL;

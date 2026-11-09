@@ -1,0 +1,502 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>내집마련 계산기</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f5f5f2;--card:#fff;--ink:#191917;--muted:#76756f;--line:#e6e5e0;--soft:#f0efea;
+  --accent:#2f5bd3;--good:#18864a;--bad:#d23f33;--warn:#b7791f;
+  --s-loan:#2f5bd3;--s-cash:#18864a;--s-credit:#d08a1f;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#131412;--card:#1d1e1b;--ink:#ecebe6;--muted:#9a9993;--line:#2f302c;--soft:#262723;
+  --accent:#7d9cf0;--good:#5cc58a;--bad:#f07a70;--warn:#e8b25a;
+  --s-loan:#7d9cf0;--s-cash:#5cc58a;--s-credit:#e8a94a;}}
+:root[data-theme="dark"]{
+  --bg:#131412;--card:#1d1e1b;--ink:#ecebe6;--muted:#9a9993;--line:#2f302c;--soft:#262723;
+  --accent:#7d9cf0;--good:#5cc58a;--bad:#f07a70;--warn:#e8b25a;
+  --s-loan:#7d9cf0;--s-cash:#5cc58a;--s-credit:#e8a94a;}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 "Noto Sans KR",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1080px;margin:0 auto;padding:20px 16px 48px}
+header{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+h1{font-size:20px;margin:0;font-weight:800}
+.live{font-size:12px;color:var(--muted);display:flex;gap:10px;align-items:center}
+.dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--muted);margin-right:4px;vertical-align:1px}
+.dot.on{background:var(--good)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px}
+.gt{font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.04em;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center}
+.gt small{font-weight:400;letter-spacing:0}
+/* 내 상태 */
+.me{display:grid;grid-template-columns:repeat(6,1fr) auto;gap:10px;align-items:end;margin-bottom:14px}
+@media(max-width:900px){.me{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:480px){.me{grid-template-columns:repeat(2,1fr)}}
+.me .gt{grid-column:1/-1;margin:0}
+.f{display:block}
+.f span{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-bottom:3px;gap:4px}
+.f span em{font-style:normal;color:var(--ink);font-weight:500;white-space:nowrap}
+.f input,.f select{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--soft);color:var(--ink);font:inherit;font-variant-numeric:tabular-nums;min-width:0}
+.f input:focus,.f select:focus{outline:2px solid var(--accent);outline-offset:-1px;background:var(--card)}
+.f input:disabled{opacity:.7}
+.tog{display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;white-space:nowrap;padding-bottom:8px}
+.tog input{width:36px;height:20px;appearance:none;background:var(--line);border-radius:20px;position:relative;cursor:pointer;transition:.15s;margin:0;flex:none}
+.tog input::after{content:"";position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:#fff;transition:.15s}
+.tog input:checked{background:var(--accent)}.tog input:checked::after{left:18px}
+/* 탭 */
+.tabs{display:flex;gap:6px;overflow-x:auto;margin-bottom:14px;padding-bottom:2px}
+.tab{flex:none;display:flex;align-items:center;gap:2px;border:1px solid var(--line);background:var(--card);color:var(--ink);padding:5px 6px 5px 12px;border-radius:999px;cursor:pointer;font:inherit;font-size:13px}
+.tab.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.tab .x{border:0;background:transparent;color:inherit;opacity:.5;cursor:pointer;font-size:15px;line-height:1;padding:2px 6px;border-radius:50%}
+.tab .x:hover{opacity:1;background:rgba(127,127,127,.2)}
+.tab.ghost{color:var(--muted);border-style:dashed;padding:5px 12px}
+.grid{display:grid;grid-template-columns:340px 1fr;gap:14px;align-items:start}
+@media(max-width:880px){.grid{grid-template-columns:1fr}}
+.grp{margin-bottom:14px}.grp:last-child{margin-bottom:0}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px}
+.seg{display:flex;background:var(--soft);border-radius:8px;padding:3px;gap:3px;margin-bottom:8px}
+.seg button{flex:1;border:0;background:transparent;color:var(--muted);padding:6px 4px;border-radius:6px;cursor:pointer;font:inherit;font-size:12px}
+.seg button.on{background:var(--card);color:var(--ink);font-weight:700;box-shadow:0 1px 2px rgba(0,0,0,.08)}
+.btn{border:1px solid var(--line);background:var(--card);color:var(--ink);padding:8px 12px;border-radius:8px;cursor:pointer;font:inherit;font-size:13px;white-space:nowrap}
+.btn.pri{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.sm{padding:3px 8px;font-size:12px;border-radius:6px}
+.btn:disabled{opacity:.5;cursor:default}
+details summary{cursor:pointer;font-size:12px;color:var(--muted);list-style:none;padding:4px 0}
+details summary::before{content:"＋ "}details[open] summary::before{content:"－ "}
+details[open] summary{margin-bottom:8px}
+/* 검색 */
+.search{border:1px dashed var(--line);border-radius:10px;padding:10px;margin-bottom:14px;background:var(--soft)}
+.search .f input,.search .f select{background:var(--card)}
+.sr{display:flex;gap:6px;margin-bottom:6px}
+.sr .f{flex:1}
+.res{max-height:260px;overflow:auto;margin-top:6px}
+.it{display:block;width:100%;text-align:left;border:0;border-bottom:1px solid var(--line);background:transparent;color:var(--ink);padding:7px 2px;cursor:pointer;font:inherit}
+.it:hover{background:var(--card)}
+.it b{font-size:13px}.it small{display:block;color:var(--muted);font-size:11px;font-variant-numeric:tabular-nums}
+.hint{font-size:12px;color:var(--muted)}
+.hint.err{color:var(--bad)}
+.src{font-size:11px;color:var(--muted);margin:-4px 0 8px}
+.src a{color:var(--accent)}
+/* 결과 */
+.verdict{border-radius:14px;padding:18px;margin-bottom:14px;color:#fff}
+.verdict.ok{background:var(--good)}.verdict.no{background:var(--bad)}
+.verdict .big{font-size:26px;font-weight:800;letter-spacing:-.01em}
+.verdict .sm{opacity:.92;font-size:13px;margin-top:2px}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.chip{background:rgba(255,255,255,.18);border-radius:999px;padding:3px 10px;font-size:12px}
+.tl{display:grid;grid-template-columns:repeat(3,1fr);margin-bottom:14px;position:relative}
+.tl::before{content:"";position:absolute;left:16%;right:16%;top:9px;height:2px;background:var(--line)}
+.tl div{text-align:center;position:relative;font-variant-numeric:tabular-nums}
+.tl i{display:block;width:12px;height:12px;border-radius:50%;background:var(--accent);margin:3px auto 6px;box-shadow:0 0 0 4px var(--bg)}
+.tl b{display:block;font-size:15px}.tl small{color:var(--muted);font-size:12px}
+.alert{border:1px solid var(--warn);background:color-mix(in srgb,var(--warn) 10%,var(--card));border-radius:10px;padding:10px 12px;font-size:13px;margin-bottom:14px}
+.alert b{color:var(--warn)}
+.alert label{display:flex;gap:6px;align-items:center;margin-top:6px;color:var(--muted);font-size:12px;cursor:pointer}
+.steps{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:600px){.steps{grid-template-columns:1fr}}
+.st h2{font-size:14px;margin:0 0 2px;display:flex;justify-content:space-between;gap:8px}
+.st h2 small{color:var(--muted);font-weight:400}
+.need{font-size:22px;font-weight:800;margin:2px 0 10px;font-variant-numeric:tabular-nums}
+.need small{font-size:12px;color:var(--muted);font-weight:400;margin-left:4px}
+.bar{display:flex;height:10px;border-radius:6px;overflow:hidden;background:var(--soft);margin-bottom:10px}
+.bar i{display:block;height:100%}
+.ln{display:flex;justify-content:space-between;align-items:center;padding:5px 0;font-size:13px;font-variant-numeric:tabular-nums;gap:8px}
+.ln .k{display:flex;align-items:center;gap:7px;color:var(--muted)}
+.ln .k::before{content:"";width:8px;height:8px;border-radius:2px;background:var(--c,transparent);flex:none}
+.ln .k small{font-size:11px}
+.ln.gap{border-top:1px solid var(--line);margin-top:4px;padding-top:8px;font-weight:700}
+.ln.gap .k{color:var(--ink)}
+.bad{color:var(--bad)}.good{color:var(--good)}
+.cost{font-size:12px;color:var(--muted);margin-top:8px;padding-top:8px;border-top:1px dashed var(--line)}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:14px}
+.stat .l{font-size:12px;color:var(--muted)}.stat .v{font-size:18px;font-weight:700;font-variant-numeric:tabular-nums}
+.meter{height:6px;border-radius:4px;background:var(--soft);margin-top:6px;position:relative;overflow:hidden}
+.meter i{position:absolute;inset:0 auto 0 0;border-radius:4px}
+.empty{text-align:center;padding:48px 16px;color:var(--muted)}
+.cmp{margin-top:14px;overflow-x:auto}
+.cmp table{width:100%;border-collapse:collapse;font-size:13px;font-variant-numeric:tabular-nums}
+.cmp th,.cmp td{padding:7px 10px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
+.cmp th:first-child,.cmp td:first-child{text-align:left;color:var(--muted);font-weight:400}
+.cmp .on{background:var(--soft)}
+.foot{font-size:11px;color:var(--muted);margin-top:14px;line-height:1.6}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header><h1>🏠 내집마련 계산기</h1><div class="live" id="live"></div></header>
+
+  <div class="card me" id="me"></div>
+  <div class="tabs" id="tabs"></div>
+  <div id="main"></div>
+  <div class="card cmp" id="cmp"></div>
+
+  <p class="foot">단위는 만원입니다. 지역과 생애최초 여부에 따라 LTV, 주담대 상한, 스트레스 DSR 40%, 신용대출 한도(연소득 이내), 6개월 전입의무, 토지거래허가구역, 취득세, 중개수수료가 자동으로 적용됩니다(2025.10.15 대책 기준).
+  모아둔 돈은 기준월부터 잔금월까지 월 저축만큼 쌓인다고 계산합니다. 잔금 이후에는 대출 상환액을 빼고 월세 수입을 더한 금액만 저축됩니다.
+  실거래가는 국토교통부, 금리는 한국은행 ECOS(예금은행 신규취급 평균) 자료입니다. KB시세는 공개 API가 없어 최근 3개월 실거래 중위값으로 추정하니, <a href="https://kbland.kr" target="_blank" rel="noopener">KB부동산</a>에서 직접 확인해 덮어쓰세요.</p>
+</div>
+
+<script>
+/* ================= 지역 · 규제 ================= */
+const SGG = {
+  "서울":"11110 종로,11140 중구,11170 용산,11200 성동,11215 광진,11230 동대문,11260 중랑,11290 성북,11305 강북,11320 도봉,11350 노원,11380 은평,11410 서대문,11440 마포,11470 양천,11500 강서,11530 구로,11545 금천,11560 영등포,11590 동작,11620 관악,11650 서초,11680 강남,11710 송파,11740 강동",
+  "경기":"41111 수원 장안,41113 수원 권선,41115 수원 팔달,41117 수원 영통,41131 성남 수정,41133 성남 중원,41135 성남 분당,41150 의정부,41171 안양 만안,41173 안양 동안,41192 부천 원미,41194 부천 소사,41196 부천 오정,41210 광명,41220 평택,41271 안산 상록,41273 안산 단원,41281 고양 덕양,41285 고양 일산동,41287 고양 일산서,41290 과천,41310 구리,41360 남양주,41370 오산,41390 시흥,41410 군포,41430 의왕,41450 하남,41461 용인 처인,41463 용인 기흥,41465 용인 수지,41480 파주,41500 이천,41570 김포,41590 화성,41610 광주,41630 양주",
+  "인천":"28110 중구,28140 동구,28177 미추홀,28185 연수,28200 남동,28237 부평,28245 계양,28260 서구",
+};
+const SGG_NAME = {}; for(const [sd,list] of Object.entries(SGG)) for(const x of list.split(",")){const [c,...n]=x.split(" ");SGG_NAME[c]=sd+" "+n.join(" ");}
+const REG_SGG = new Set(["41290","41210","41131","41133","41135","41111","41115","41117","41173","41465","41430","41450"]);
+const regionOf = code => code.startsWith("11")||REG_SGG.has(code) ? "reg" : /^(41|28)/.test(code) ? "metro" : "local";
+const REGIONS = {reg:"규제지역",metro:"수도권",local:"지방"};
+const REGION_FULL = {reg:"규제지역(서울·경기 12곳)",metro:"수도권 비규제",local:"지방"};
+
+function rules(p,s){
+  const first=p.first, price=s.price;
+  if(s.region==="reg") return {ltv:first?70:40, cap:price<=150000?60000:price<=250000?40000:20000, stress:3.0, moveIn:true, toheo:true};
+  if(s.region==="metro") return {ltv:70, cap:60000, stress:3.0, moveIn:true, toheo:false};
+  return {ltv:first?80:70, cap:Infinity, stress:0.75, moveIn:false, toheo:false};
+}
+function acqTax(price, first){
+  const r = price<=60000?1 : price<=90000?(price/10000)*2/3-3 : 3;
+  let t = price*r/100*1.1;
+  if(first && price<=120000) t -= Math.min(200, price*r/100);
+  return Math.max(0,t);
+}
+function brokerFee(p){
+  if(p<5000) return Math.min(p*.006,25); if(p<20000) return Math.min(p*.005,80);
+  if(p<90000) return p*.004; if(p<120000) return p*.005; if(p<150000) return p*.006; return p*.007;
+}
+const pmt=(P,rate,y)=>{ if(P<=0) return 0; const r=rate/1200,n=y*12; return r?P*r/(1-Math.pow(1+r,-n)):P/n; };
+const pv =(M,rate,y)=>{ if(M<=0) return 0; const r=rate/1200,n=y*12; return r?M*(1-Math.pow(1+r,-n))/r:M*n; };
+const ymDiff=(a,b)=>{ if(!a||!b) return 0; const [y1,m1]=a.split("-").map(Number),[y2,m2]=b.split("-").map(Number); return (y2-y1)*12+(m2-m1); };
+const ymAdd=(a,n)=>{ const [y,m]=a.split("-").map(Number); const d=new Date(y,m-1+n,1); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`; };
+const ymLabel=a=>a?a.replace("-","."):"–";
+
+/* ================= 계산 ================= */
+function calc(p,s){
+  const R=rules(p,s), o={R};
+  o.m1 = Math.max(0, ymDiff(p.asOf, s.buyYm));
+  o.m2 = Math.max(0, ymDiff(s.buyYm, s.moveYm));
+  o.cashAtBuy = p.saved + p.monthlySave*o.m1;
+
+  o.tax=acqTax(s.price,p.first); o.fee=brokerFee(s.price); o.misc=s.misc; o.costs=o.tax+o.fee+o.misc;
+  const tenantRule = s.deposit>0 && (R.toheo || (R.moveIn && o.m2>6));
+  o.blockReason = !tenantRule||s.ignore ? null
+    : R.toheo ? "토지거래허가구역이라 실거주용 매수만 허가됩니다. 세입자가 있는 집은 매수 자체가 어렵습니다."
+    : `주담대를 받으면 6개월 안에 전입해야 하는데, 잔금 뒤 ${o.m2}개월이 지나야 입주할 수 있어서 잔금 시점에 주담대를 받을 수 없습니다.`;
+  o.ignored = tenantRule && s.ignore;
+
+  const ltvMax = s.kb*R.ltv/100;
+  let room = p.income*0.4/12 - p.otherDebt;
+  const mS = p.mRate+R.stress;
+
+  // ① 잔금
+  o.ltvRoom = Math.max(0, ltvMax - s.deposit);
+  o.dsrMax = pv(Math.max(0,room), mS, p.mYears);
+  o.loanLimit = o.blockReason ? 0 : Math.min(o.ltvRoom, R.cap, o.dsrMax);
+  o.limitBy = o.blockReason ? "규제" : o.loanLimit===o.ltvRoom ? "LTV" : o.loanLimit===R.cap ? "상한" : "DSR";
+  o.toSeller = s.price - s.deposit;
+  o.loan = Math.min(o.loanLimit, Math.max(0,o.toSeller));
+  room -= pmt(o.loan, mS, p.mYears);
+  o.need1 = Math.max(0, o.toSeller - o.loan) + o.costs;
+  o.cash1 = Math.min(o.cashAtBuy, o.need1);
+  let rem = o.need1 - o.cash1;
+  o.creditCap = p.income;
+  o.credit = Math.min(rem, o.creditCap, pv(Math.max(0,room), p.cRate, 5));
+  room -= pmt(o.credit, p.cRate, 5);
+  o.gap1 = Math.max(0, rem - o.credit);
+  o.leftover = o.cashAtBuy - o.cash1;
+
+  // 보유 기간 저축 (상환액 차감, 월세 수입 가산)
+  o.pay1 = pmt(o.loan,p.mRate,p.mYears) + pmt(o.credit,p.cRate,p.cYears);
+  o.holdSave = p.monthlySave - o.pay1 + (s.rent||0);
+  o.cashAtMove = o.leftover + o.holdSave*o.m2;
+
+  // ② 입주
+  o.cash2 = Math.max(0, Math.min(o.cashAtMove, s.deposit));
+  rem = s.deposit - o.cash2;
+  o.addRoom = Math.max(0, Math.min(ltvMax, R.cap) - o.loan);
+  o.addLoan = Math.min(rem, o.addRoom, pv(Math.max(0,room), mS, p.mYears));
+  rem -= o.addLoan; room -= pmt(o.addLoan, mS, p.mYears);
+  o.credit2 = Math.min(rem, Math.max(0,o.creditCap-o.credit), pv(Math.max(0,room), p.cRate, 5));
+  rem -= o.credit2; room -= pmt(o.credit2, p.cRate, 5);
+  o.gap2 = Math.max(0, rem) + Math.max(0, -o.cashAtMove);
+  o.surplus2 = Math.max(0, o.cashAtMove - o.cash2);
+
+  o.pay2 = o.pay1 + pmt(o.addLoan,p.mRate,p.mYears) + pmt(o.credit2,p.cRate,p.cYears);
+  o.dsr = p.income>0 ? (p.income*0.4/12 - room)/(p.income/12)*100 : 0;
+  o.totalLoan = o.loan+o.credit+o.addLoan+o.credit2;
+  o.gap = o.gap1+o.gap2;
+  return o;
+}
+
+/* ================= 상태 ================= */
+const nowYm = (()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`})();
+const PROFILE={asOf:nowYm,saved:20000,monthlySave:200,income:8000,otherDebt:0,first:true,
+  mRate:4.2,mYears:30,cRate:5.5,cYears:5,autoRate:true};
+const L={kb:64000,region:"metro",rent:0,misc:200,ignore:false,buyYm:ymAdd(nowYm,6),moveYm:ymAdd(nowYm,18)};
+const PRESETS=[
+  {...L,name:"전세 6.7억",price:67000,deposit:31000},
+  {...L,name:"전세 6.9억",price:69000,deposit:31500},
+  {...L,name:"월세 7억",price:70000,deposit:5000,rent:150},
+];
+let st; try{st=JSON.parse(localStorage.getItem("homecalc-v3"))}catch(e){}
+if(!st||!st.list||!st.p) st={a:0,p:{...PROFILE},list:structuredClone(PRESETS)};
+const save=()=>{try{localStorage.setItem("homecalc-v3",JSON.stringify(st))}catch(e){}};
+const cur=()=>st.list[st.a];
+const live={on:false,molit:false,ecos:false,rates:null,rateErr:"",results:null,searchErr:"",loading:false};
+
+/* ================= 포맷 ================= */
+const F=n=>{n=Math.round(n);if(!isFinite(n))return"무제한";const a=Math.abs(n),e=Math.floor(a/10000),m=a%10000;
+  return (n<0?"-":"")+(e?e+"억"+(m?" "+m.toLocaleString():""):m.toLocaleString());};
+const W=n=>Math.round(n).toLocaleString()+"만";
+const $=id=>document.getElementById(id);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+/* ================= 내 현재 상태 ================= */
+const mf=(k,l,o={})=>`<label class="f"><span>${l}${o.h?`<em data-h="${k}"></em>`:""}</span><input type="${o.t||"number"}" ${o.t?"":`inputmode="decimal" step="${o.step||100}"`} data-p="${k}" ${o.dis?"disabled":""}></label>`;
+function renderMe(){
+  const p=st.p, auto=p.autoRate&&live.rates;
+  $("me").innerHTML=`
+    <div class="gt">내 현재 상태 <small>모든 매물에 같이 적용됩니다</small></div>
+    ${mf("asOf","기준월",{t:"month"})}
+    ${mf("saved","모아둔 돈",{h:1})}
+    ${mf("monthlySave","월 저축")}
+    ${mf("income","연소득(합산)",{h:1})}
+    ${mf("otherDebt","기존대출 월상환")}
+    <label class="tog"><input type="checkbox" data-p="first"> 생애최초</label>
+    <details style="grid-column:1/-1"><summary>금리 · 만기 ${auto?`<span class="good">· 실시간 금리 적용 중</span>`:""}</summary>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;align-items:end">
+        ${mf("mRate","주담대 금리 %",{step:.1,dis:auto})}${mf("mYears","주담대 만기(년)",{step:5})}
+        ${mf("cRate","신용 금리 %",{step:.1,dis:auto})}${mf("cYears","신용 상환(년)",{step:1})}
+        <label class="tog" ${live.ecos?"":"style='opacity:.5'"}><input type="checkbox" data-p="autoRate" ${live.ecos?"":"disabled"}> 실시간 금리</label>
+      </div>
+      <div class="hint ${live.rateErr?"err":""}" style="margin-top:6px">${
+        live.rates?`한국은행 ECOS 예금은행 신규취급 평균: 주담대 ${live.rates.mortgage?.rate??"–"}% (${live.rates.mortgage?.time??""}), 일반신용 ${live.rates.credit?.rate??"–"}% (${live.rates.credit?.time??""}). 실제 내 금리는 이보다 조금 높을 수 있습니다.`
+        : live.rateErr || (live.on?"ECOS_KEY를 설정하면 금리가 자동으로 들어갑니다.":"실시간 금리를 쓰려면 서버를 실행하세요.")}</div>
+    </details>`;
+  syncMe();
+}
+function syncMe(){
+  const p=st.p;
+  document.querySelectorAll("#me [data-p]").forEach(el=>{const k=el.dataset.p;if(document.activeElement===el)return;
+    if(el.type==="checkbox")el.checked=!!p[k];else el.value=p[k];});
+  document.querySelectorAll("#me [data-h]").forEach(el=>{const v=p[el.dataset.h];el.textContent=v>=10000?F(v):""});
+}
+$("me").addEventListener("input",e=>{const el=e.target,k=el.dataset.p;if(!k)return;
+  st.p[k]=el.type==="checkbox"?el.checked:el.type==="number"?(parseFloat(el.value)||0):el.value;
+  if(k==="autoRate"){applyRates();renderMe();}
+  save();syncMe();renderOut();});
+
+function applyRates(){
+  if(st.p.autoRate&&live.rates){
+    if(live.rates.mortgage) st.p.mRate=live.rates.mortgage.rate;
+    if(live.rates.credit) st.p.cRate=live.rates.credit.rate;
+  }
+}
+
+/* ================= 매물 폼 ================= */
+const lf=(k,l,o={})=>`<label class="f"><span>${l}${o.h?`<em data-h="${k}"></em>`:""}</span><input type="${o.t||"number"}" ${o.t?"":`inputmode="decimal" step="${o.step||100}"`} data-k="${k}"></label>`;
+function sggOptions(sel){
+  return `<option value="">시군구 선택</option>`+Object.entries(SGG).map(([sd,list])=>`<optgroup label="${sd}">${
+    list.split(",").map(x=>{const [c,...n]=x.split(" ");return `<option value="${c}" ${c===sel?"selected":""}>${n.join(" ")}${REG_SGG.has(c)||c.startsWith("11")?" ·규제":""}</option>`}).join("")}</optgroup>`).join("");
+}
+function searchHTML(){
+  const s=cur();
+  if(!live.on) return `<div class="search"><div class="gt">🔎 실거래가로 채우기</div><div class="hint">서버를 실행하면 실거래가를 검색할 수 있습니다.<br><code>node server.mjs</code> 실행 후 http://localhost:5178 접속</div></div>`;
+  if(!live.molit) return `<div class="search"><div class="gt">🔎 실거래가로 채우기</div><div class="hint">.env에 DATA_GO_KR_KEY를 넣고 서버를 다시 실행하세요.</div></div>`;
+  return `<div class="search"><div class="gt">🔎 실거래가로 채우기</div>
+    <div class="sr"><label class="f"><select id="q-sgg">${sggOptions(s.sgg||"")}</select></label>
+      <label class="f" style="flex:.6"><select id="q-m"><option value="3">3개월</option><option value="6" selected>6개월</option><option value="12">12개월</option></select></label></div>
+    <div class="sr"><label class="f"><input id="q-apt" placeholder="단지명 (예: 래미안)" value="${esc(s.meta?.apt||"")}"></label>
+      <button class="btn pri" id="q-go" ${live.loading?"disabled":""}>${live.loading?"조회 중…":"조회"}</button></div>
+    <div class="res" id="q-res"></div></div>`;
+}
+function renderResults(){
+  const box=$("q-res"); if(!box) return;
+  if(live.searchErr){box.innerHTML=`<div class="hint err">${esc(live.searchErr)}</div>`;return;}
+  if(!live.results){box.innerHTML="";return;}
+  const q=($("q-apt").value||"").trim();
+  const list=live.results.list.filter(x=>!q||x.apt.includes(q)).slice(0,60);
+  box.innerHTML=list.length?list.map((x,i)=>`<button class="it" data-i="${live.results.list.indexOf(x)}"><b>${esc(x.apt)}</b> ${x.area}㎡ <span class="hint">${esc(x.dong)} · ${x.buildYear}년</span>
+    <small>최근 ${F(x.lastPrice)} (${x.lastDate.slice(2)}) · 중위 ${F(x.median3)} · 거래 ${x.count}건${x.jeonseCount?` · 전세 ${F(x.jeonseMedian)}`:""}</small></button>`).join("")
+    :`<div class="hint">검색 결과가 없습니다.</div>`;
+}
+async function doSearch(){
+  const code=$("q-sgg").value; if(!code){live.searchErr="시군구를 선택하세요.";renderResults();return;}
+  live.loading=true;live.searchErr="";$("q-go").disabled=true;$("q-go").textContent="조회 중…";
+  try{
+    const r=await fetch(`/api/trades?lawd=${code}&months=${$("q-m").value}`);const j=await r.json();
+    if(!r.ok) throw new Error(j.error||r.status);
+    live.results=j;
+  }catch(e){live.searchErr="조회 실패: "+e.message;live.results=null;}
+  live.loading=false;
+  if($("q-go")){$("q-go").disabled=false;$("q-go").textContent="조회";}
+  renderResults();
+}
+function applyItem(x){
+  const s=cur(), code=live.results.lawd;
+  Object.assign(s,{name:`${x.apt} ${x.area}㎡`,price:x.lastPrice,kb:x.median3,sgg:code,region:regionOf(code),
+    meta:{apt:x.apt,area:x.area,dong:x.dong,lastDate:x.lastDate,median3:x.median3,jeonse:x.jeonseMedian,jeonseCount:x.jeonseCount,sggName:SGG_NAME[code]}});
+  save();renderTabs();syncForm();renderSrc();renderOut();
+}
+function renderSrc(){
+  const s=cur(),m=s.meta,el=$("src"); if(!el) return;
+  el.innerHTML=m?`📍 ${esc(m.sggName||"")} ${esc(m.dong)} · 매매가는 최근 실거래(${m.lastDate}), KB시세는 3개월 중위 ${F(m.median3)}로 추정했습니다. <a href="https://kbland.kr" target="_blank" rel="noopener">KB에서 확인</a>${m.jeonseCount?` · 전세 중위 ${F(m.jeonse)} <button class="btn sm" id="useJeonse">보증금에 적용</button>`:""}`:"";
+}
+function formHTML(){
+  return `${searchHTML()}
+  <div class="grp"><div class="gt">매물</div>
+    <div class="src" id="src"></div>
+    <div class="row2">${lf("price","매매가",{h:1})}${lf("kb","KB시세",{h:1})}</div>
+    <div class="row2">${lf("deposit","세입자 보증금",{h:1})}${lf("rent","월세 수입")}</div>
+    <div class="seg" data-seg="region">${Object.entries(REGIONS).map(([k,v])=>`<button data-v="${k}">${v}</button>`).join("")}</div>
+  </div>
+  <div class="grp"><div class="gt">일정</div>
+    <div class="row2">${lf("buyYm","잔금월",{t:"month"})}${lf("moveYm","입주월 (세입자 퇴거)",{t:"month"})}</div>
+  </div>
+  <details><summary>기타</summary>
+    <div class="row2">${lf("misc","등기·이사 등")}${lf("name","이름",{t:"text"})}</div>
+  </details>`;
+}
+function syncForm(){
+  const s=cur(); if(!s) return;
+  document.querySelectorAll("#form [data-k]").forEach(el=>{const k=el.dataset.k;if(document.activeElement===el)return;el.value=s[k]??"";});
+  document.querySelectorAll("#form [data-h]").forEach(el=>{const v=s[el.dataset.h];el.textContent=v>=10000?F(v):""});
+  document.querySelectorAll("#form [data-seg] button").forEach(b=>b.classList.toggle("on",s.region===b.dataset.v));
+}
+function bindForm(){
+  const f=$("form");
+  f.addEventListener("input",e=>{const el=e.target,k=el.dataset.k;
+    if(el.id==="q-apt"){renderResults();return;}
+    if(!k)return;const s=cur();
+    s[k]=el.type==="number"?(parseFloat(el.value)||0):el.value;
+    save(); if(k==="name") renderTabs(); syncForm(); renderOut();});
+  f.addEventListener("click",e=>{
+    const b=e.target.closest("[data-seg] button");
+    if(b){cur().region=b.dataset.v;save();syncForm();renderOut();return;}
+    if(e.target.id==="q-go"){doSearch();return;}
+    if(e.target.id==="useJeonse"){cur().deposit=cur().meta.jeonse;cur().rent=0;save();syncForm();renderOut();return;}
+    const it=e.target.closest(".it"); if(it) applyItem(live.results.list[+it.dataset.i]);
+  });
+  f.addEventListener("change",e=>{if(e.target.id==="q-sgg"&&e.target.value){cur().sgg=e.target.value;cur().region=regionOf(e.target.value);save();syncForm();doSearch();}});
+}
+
+/* ================= 결과 ================= */
+function bar(parts,total){return total>0?`<div class="bar">${parts.filter(p=>p[1]>0).map(p=>`<i style="width:${p[1]/total*100}%;background:var(${p[0]})"></i>`).join("")}</div>`:"";}
+function ln(c,k,v,sub=""){return v>0?`<div class="ln"><span class="k" style="--c:var(${c})">${k}${sub?` <small>${sub}</small>`:""}</span><span>${F(v)}</span></div>`:"";}
+const endLn=(gap,left)=>gap>0?`<div class="ln gap"><span class="k" style="--c:var(--bad)">부족</span><span class="bad">${F(gap)}</span></div>`
+  :`<div class="ln gap"><span class="k">남는 돈</span><span class="good">${F(left)}</span></div>`;
+function renderOut(){
+  const s=cur(); if(!s){renderCmp();return;}
+  const p=st.p,o=calc(p,s),R=o.R,ok=o.gap<=0;
+  const lim={LTV:"LTV 한도",상한:"상한 6억",DSR:"DSR 한도",규제:"규제로 불가"}[o.limitBy];
+  $("out").innerHTML=`
+  <div class="verdict ${ok?"ok":"no"}">
+    <div class="big">${ok?"✓ 살 수 있어요":`${F(o.gap)}만 원 부족`}</div>
+    <div class="sm">${ok?`입주 후 남는 돈 ${F(o.surplus2)}만 원`:[o.gap1>0?`잔금 때 ${F(o.gap1)}`:"",o.gap2>0?`입주 때 ${F(o.gap2)}`:""].filter(Boolean).join(" · ")+" 부족"}</div>
+    <div class="chips">
+      <span class="chip">${REGION_FULL[s.region]}${p.first?" · 생애최초":""}</span>
+      <span class="chip">LTV ${R.ltv}%</span><span class="chip">주담대 상한 ${F(R.cap)}</span>
+      <span class="chip">금리 ${p.mRate}% (+스트레스 ${R.stress}%p)</span><span class="chip">신용 ≤ ${F(o.creditCap)}</span>
+    </div>
+  </div>
+  <div class="card tl">
+    <div><i></i><small>지금 ${ymLabel(p.asOf)}</small><b>${F(p.saved)}</b></div>
+    <div><i></i><small>잔금 ${ymLabel(s.buyYm)} · +${o.m1}개월</small><b>${F(o.cashAtBuy)}</b></div>
+    <div><i></i><small>입주 ${ymLabel(s.moveYm)} · +${o.m2}개월</small><b class="${o.cashAtMove<0?"bad":""}">${F(o.cashAtMove)}</b></div>
+  </div>
+  ${o.blockReason||o.ignored?`<div class="alert"><b>⚠ ${o.ignored?"규제 예외를 가정하고 계산 중입니다":"잔금 시점에 주담대를 받을 수 없습니다"}</b><br>${o.blockReason||"실제로는 규제 때문에 이 방식으로 진행하지 못할 수 있습니다."}
+    ${R.moveIn&&!R.toheo&&!o.ignored?`<br>입주월을 잔금월 이후 6개월 안(<b>${ymLabel(ymAdd(s.buyYm,6))}</b> 이전)으로 맞추면 주담대를 받을 수 있습니다.`:""}
+    <label><input type="checkbox" id="ign" ${s.ignore?"checked":""}> 규제 예외로 가정하고 계산하기</label></div>`:""}
+  <div class="steps">
+    <div class="card st">
+      <h2>① 잔금 <small>${ymLabel(s.buyYm)}</small></h2>
+      <div class="need">${F(o.need1+o.loan)}<small>매매가 − 보증금 + 부대비용</small></div>
+      ${bar([["--s-loan",o.loan],["--s-cash",o.cash1],["--s-credit",o.credit],["--bad",o.gap1]],o.need1+o.loan)}
+      ${ln("--s-loan","주담대",o.loan,lim)}
+      ${ln("--s-cash","내 돈",o.cash1,`보유 ${F(o.cashAtBuy)}`)}
+      ${ln("--s-credit","신용대출",o.credit)}
+      ${endLn(o.gap1,o.leftover)}
+      <div class="cost">부대비용 ${W(o.costs)} = 취득세 ${W(o.tax)} + 중개 ${W(o.fee)} + 기타 ${W(o.misc)}</div>
+    </div>
+    <div class="card st">
+      <h2>② 입주 <small>${ymLabel(s.moveYm)} · 보증금 반환</small></h2>
+      <div class="need">${F(s.deposit)}<small>돌려줄 보증금</small></div>
+      ${bar([["--s-cash",o.cash2],["--s-loan",o.addLoan],["--s-credit",o.credit2],["--bad",o.gap2]],s.deposit)}
+      ${ln("--s-cash","내 돈",o.cash2,`남은 돈 + 월 ${W(o.holdSave)}×${o.m2}`)}
+      ${ln("--s-loan","주담대 추가",o.addLoan,`여력 ${F(o.addRoom)}`)}
+      ${ln("--s-credit","신용대출 추가",o.credit2)}
+      ${s.deposit>0||o.cashAtMove<0?endLn(o.gap2,o.surplus2):`<div class="hint">돌려줄 보증금이 없습니다.</div>`}
+      <div class="cost">잔금 후에는 월 저축 ${W(p.monthlySave)}에서 상환액 ${W(o.pay1)}를 빼고${s.rent?` 월세 ${W(s.rent)}를 더해`:""} 매달 <b class="${o.holdSave<0?"bad":""}">${W(o.holdSave)}</b>씩 모입니다.</div>
+    </div>
+  </div>
+  <div class="card stats">
+    <div class="stat"><div class="l">보유 중 월 상환</div><div class="v">${W(o.pay1)}</div></div>
+    <div class="stat"><div class="l">입주 후 월 상환</div><div class="v">${W(o.pay2)}</div></div>
+    <div class="stat"><div class="l">스트레스 DSR</div><div class="v ${o.dsr>40?"bad":""}">${o.dsr.toFixed(0)}<small style="font-size:12px;color:var(--muted)"> / 40%</small></div>
+      <div class="meter"><i style="width:${Math.min(100,o.dsr/40*100)}%;background:var(${o.dsr>38?"--bad":o.dsr>30?"--warn":"--good"})"></i></div></div>
+  </div>`;
+  const ign=$("ign"); if(ign) ign.onchange=()=>{cur().ignore=ign.checked;save();renderOut();};
+  renderCmp();
+}
+function renderCmp(){
+  if(!st.list.length){$("cmp").style.display="none";return;} $("cmp").style.display="";
+  const cs=st.list.map(s=>[s,calc(st.p,s)]);
+  const rows=[
+    ["매매가",(s)=>F(s.price)],["잔금 / 입주",(s)=>`${ymLabel(s.buyYm)} / ${ymLabel(s.moveYm)}`],
+    ["주담대",(s,o)=>F(o.loan+o.addLoan)],["신용대출",(s,o)=>F(o.credit+o.credit2)],
+    ["잔금 부족",(s,o)=>o.gap1>0?`<span class="bad">${F(o.gap1)}</span>`:"–"],
+    ["입주 부족",(s,o)=>o.gap2>0?`<span class="bad">${F(o.gap2)}</span>`:"–"],
+    ["입주 후 월상환",(s,o)=>W(o.pay2)],
+    ["DSR",(s,o)=>`<span class="${o.dsr>40?"bad":""}">${o.dsr.toFixed(0)}%</span>`],
+  ];
+  $("cmp").innerHTML=`<table><tr><th></th>${cs.map(([s],i)=>`<th class="${i===st.a?"on":""}">${esc(s.name)}</th>`).join("")}</tr>
+  ${rows.map(([l,f])=>`<tr><td>${l}</td>${cs.map(([s,o],i)=>`<td class="${i===st.a?"on":""}">${f(s,o)}</td>`).join("")}</tr>`).join("")}</table>`;
+}
+
+/* ================= 탭 (추가 · 삭제) ================= */
+function renderTabs(){
+  $("tabs").innerHTML=st.list.map((s,i)=>`<div class="tab ${i===st.a?"on":""}" data-i="${i}">${esc(s.name)}<button class="x" data-del="${i}" title="삭제" aria-label="${esc(s.name)} 삭제">×</button></div>`).join("")
+   +`<button class="tab ghost" data-add>＋ 매물 추가</button>${st.list.length?"":`<button class="tab ghost" data-reset>예시 불러오기</button>`}`;
+}
+$("tabs").onclick=e=>{
+  const del=e.target.closest("[data-del]");
+  if(del){const i=+del.dataset.del;if(!confirm(`'${st.list[i].name}' 매물을 삭제할까요?`))return;
+    st.list.splice(i,1);st.a=Math.max(0,Math.min(st.a>i?st.a-1:st.a,st.list.length-1));save();full();return;}
+  const b=e.target.closest("[data-add],[data-reset],[data-i]");if(!b)return;
+  if("add" in b.dataset){const base=cur()?{...cur(),meta:null}:{...L,price:70000,deposit:0};base.name="매물 "+(st.list.length+1);st.list.push(base);st.a=st.list.length-1;}
+  else if("reset" in b.dataset){st.list=structuredClone(PRESETS);st.a=0;}
+  else st.a=+b.dataset.i;
+  live.results=null;live.searchErr="";
+  save();full();};
+
+function full(){
+  renderTabs();
+  if(!st.list.length){$("main").innerHTML=`<div class="card empty">매물이 없습니다. <b>＋ 매물 추가</b>를 눌러 시작하세요.</div>`;renderCmp();return;}
+  $("main").innerHTML=`<div class="grid"><div class="card" id="form"></div><div id="out"></div></div>`;
+  $("form").innerHTML=formHTML();bindForm();syncForm();renderSrc();renderOut();
+}
+
+/* ================= 실시간 연결 ================= */
+function renderLive(){
+  $("live").innerHTML=!live.on?`<span><span class="dot"></span>오프라인 모드</span>`
+    :`<span><span class="dot ${live.molit?"on":""}"></span>실거래가</span><span><span class="dot ${live.rates?"on":""}"></span>금리</span>`;
+}
+async function connect(){
+  if(!location.protocol.startsWith("http")) return;
+  try{
+    const r=await fetch("/api/status");if(!r.ok)throw 0;Object.assign(live,await r.json(),{on:true});
+  }catch(e){return;}
+  renderLive();full();
+  if(live.ecos){
+    try{const r=await fetch("/api/rates");const j=await r.json();if(!r.ok)throw new Error(j.error);live.rates=j;applyRates();save();}
+    catch(e){live.rateErr="금리 조회 실패: "+e.message;}
+    renderLive();renderMe();renderOut();
+  }
+}
+
+renderLive();renderMe();full();connect();
+</script>
+</body>
+</html>
